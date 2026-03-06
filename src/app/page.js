@@ -4,6 +4,11 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Container,
+  Chip,
+  FormControl,
+  InputLabel,
+  MenuItem,
+  Select,
   Table,
   TableBody,
   TableCell,
@@ -27,6 +32,7 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [deliveryFilter, setDeliveryFilter] = useState("all"); // all | available | delivered
 
   useEffect(() => {
     fetch("/api/vehicles")
@@ -93,19 +99,41 @@ export default function Home() {
     );
   }
 
-  // Filter vehicles based on search query
-  const filteredVehicles = vehicles.filter((vehicle) => {
-    const searchLower = searchQuery.toLowerCase();
-    return (
-      vehicle.vno?.toLowerCase().includes(searchLower) ||
-      vehicle.product?.toLowerCase().includes(searchLower)
-    );
-  });
+  const getDeliveryStatus = (vehicle) => {
+    const raw = vehicle.vehicleDelivered?.toString().trim();
+    if (!raw) return "available"; // Available for sale
+    return "delivered";
+  };
+
+  const getStatusLabel = (vehicle) => {
+    const raw = vehicle.vehicleDelivered?.toString().trim();
+    if (!raw) return "Available for sale";
+    return raw;
+  };
+
+  // Filter vehicles based on search query and delivery status
+  const filteredVehicles = vehicles
+    .filter((vehicle) => {
+      const searchLower = searchQuery.toLowerCase();
+      return (
+        vehicle.vno?.toLowerCase().includes(searchLower) ||
+        vehicle.product?.toLowerCase().includes(searchLower)
+      );
+    })
+    .filter((vehicle) => {
+      const status = getDeliveryStatus(vehicle);
+      if (deliveryFilter === "available") return status === "available";
+      if (deliveryFilter === "delivered") return status === "delivered";
+      return true;
+    });
 
   return (
     <Container
-      maxWidth="lg"
-      sx={{ marginTop: { xs: 3, sm: 4, md: 5 }, pb: { xs: 3, sm: 4, md: 5 } }}
+      maxWidth="md"
+      sx={{
+        marginTop: { xs: 2, sm: 3, md: 4 },
+        pb: { xs: 3, sm: 4, md: 5 },
+      }}
     >
       <Typography
         variant="h4"
@@ -124,24 +152,42 @@ export default function Home() {
         Vehicle Inventory
       </Typography>
 
-      {/* Search Bar */}
-      <Box sx={{ mb: 4 }}>
-        <TextField
-          fullWidth
-          placeholder="Search by V.NO or Product..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          variant="outlined"
-          size="medium"
-          sx={{
-            backgroundColor: "#fff",
-            "& .MuiOutlinedInput-root": {
-              borderRadius: "8px",
-              fontSize: "1rem",
-            },
-          }}
-        />
-      </Box>
+      {/* Search & Filters */}
+      <Grid container spacing={2} sx={{ mb: 4 }}>
+        <Grid item xs={12} md={6}>
+          <TextField
+            fullWidth
+            placeholder="Search by Vehicle No or Model..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            variant="outlined"
+            size="medium"
+            sx={{
+              backgroundColor: "#fff",
+              "& .MuiOutlinedInput-root": {
+                borderRadius: "10px",
+                fontSize: "1rem",
+              },
+            }}
+          />
+        </Grid>
+        <Grid item xs={12} md={6}>
+          <FormControl fullWidth size="medium">
+            <InputLabel id="delivery-filter-label">Vehicle Delivered</InputLabel>
+            <Select
+              labelId="delivery-filter-label"
+              value={deliveryFilter}
+              label="Vehicle Delivered"
+              onChange={(e) => setDeliveryFilter(e.target.value)}
+              sx={{ backgroundColor: "#fff", borderRadius: "10px" }}
+            >
+              <MenuItem value="all">All vehicles</MenuItem>
+              <MenuItem value="available">Available for sale</MenuItem>
+              <MenuItem value="delivered">Delivered only</MenuItem>
+            </Select>
+          </FormControl>
+        </Grid>
+      </Grid>
 
       {/* Responsive View - Combined Table */}
       <Box sx={{ display: { xs: "none", md: "block" } }}>
@@ -150,16 +196,19 @@ export default function Home() {
             <TableHead>
               <TableRow sx={{ backgroundColor: "#f5f5f5" }}>
                 <TableCell sx={{ fontWeight: "bold", fontSize: "1rem" }}>
-                  V.NO
+                  VEHICLE NO
                 </TableCell>
                 <TableCell sx={{ fontWeight: "bold", fontSize: "1rem" }}>
-                  PRODUCT
+                  VEHICLE MODEL
                 </TableCell>
                 <TableCell sx={{ fontWeight: "bold", fontSize: "1rem" }}>
-                  FINAL PRICE
+                  TOTAL VEHICLE PRICE
                 </TableCell>
                 <TableCell sx={{ fontWeight: "bold", fontSize: "1rem" }}>
-                  REMARKS
+                  VEHICLE DELIVERED
+                </TableCell>
+                <TableCell sx={{ fontWeight: "bold", fontSize: "1rem" }}>
+                  NOTES
                 </TableCell>
                 <TableCell sx={{ fontWeight: "bold", fontSize: "1rem" }}>
                   ACTION
@@ -182,6 +231,14 @@ export default function Home() {
                   </TableCell>
                   <TableCell sx={{ fontSize: "0.95rem", fontWeight: "bold", color: "green" }}>
                     ₹{vehicle.finalPrice || "-"}
+                  </TableCell>
+                  <TableCell sx={{ fontSize: "0.95rem" }}>
+                    <Chip
+                      label={getStatusLabel(vehicle)}
+                      size="small"
+                      color={getDeliveryStatus(vehicle) === "delivered" ? "success" : "warning"}
+                      variant={getDeliveryStatus(vehicle) === "delivered" ? "filled" : "outlined"}
+                    />
                   </TableCell>
                   <TableCell sx={{ fontSize: "0.95rem" }}>
                     {vehicle.remarks || "-"}
@@ -210,56 +267,123 @@ export default function Home() {
       <Grid
         container
         spacing={2}
-        sx={{ display: { xs: "flex", md: "none" } }}
+        sx={{
+          display: { xs: "block", md: "none" },
+        }}
       >
         {filteredVehicles.map((vehicle) => (
           <Grid item xs={12} key={vehicle.id}>
             <Card
               sx={{
                 cursor: "pointer",
-                transition: "all 0.3s ease",
+                transition: "all 0.25s ease",
+                borderRadius: 2,
+                boxShadow: 2,
+                mt: 1,
                 "&:hover": {
-                  boxShadow: 6,
-                  transform: "translateY(-2px)",
+                  boxShadow: 4,
+                  transform: "translateY(-1px)",
                 },
               }}
               onClick={() => router.push(`/vehicle/${vehicle.id}`)}
             >
-              <CardContent>
-                <Box sx={{ mb: 2 }}>
-                  <Typography variant="subtitle2" color="textSecondary">
-                    V.NO
-                  </Typography>
-                  <Typography sx={{ fontSize: "1.1rem", fontWeight: "bold" }}>
-                    {vehicle.vno}
-                  </Typography>
+              <CardContent sx={{ p: 2.25 }}>
+                <Box
+                  sx={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "flex-start",
+                    mb: 1.5,
+                    gap: 1.5,
+                  }}
+                >
+                  <Box sx={{ minWidth: 0 }}>
+                    <Typography
+                      variant="subtitle2"
+                      color="textSecondary"
+                      sx={{ fontSize: "0.75rem", mb: 0.25 }}
+                    >
+                      VEHICLE NO
+                    </Typography>
+                    <Typography
+                      sx={{
+                        fontSize: "1rem",
+                        fontWeight: "bold",
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                      }}
+                    >
+                      {vehicle.vno}
+                    </Typography>
+                    <Typography
+                      variant="body2"
+                      color="textSecondary"
+                      sx={{
+                        mt: 0.5,
+                        fontSize: "0.8rem",
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                      }}
+                    >
+                      {vehicle.product}
+                    </Typography>
+                  </Box>
+                  <Box sx={{ textAlign: "right", minWidth: "40%" }}>
+                    <Typography
+                      variant="subtitle2"
+                      color="textSecondary"
+                      sx={{ fontSize: "0.75rem" }}
+                    >
+                      TOTAL PRICE
+                    </Typography>
+                    <Typography
+                      sx={{
+                        fontSize: "1.05rem",
+                        fontWeight: "bold",
+                        color: "green",
+                      }}
+                    >
+                      ₹{vehicle.finalPrice || "-"}
+                    </Typography>
+                    <Box sx={{ mt: 1 }}>
+                      <Chip
+                        label={getStatusLabel(vehicle)}
+                        size="small"
+                        color={
+                          getDeliveryStatus(vehicle) === "delivered"
+                            ? "success"
+                            : "warning"
+                        }
+                        variant={
+                          getDeliveryStatus(vehicle) === "delivered"
+                            ? "filled"
+                            : "outlined"
+                        }
+                      />
+                    </Box>
+                  </Box>
                 </Box>
 
-                <Box sx={{ mb: 2 }}>
-                  <Typography variant="subtitle2" color="textSecondary">
-                    PRODUCT
-                  </Typography>
-                  <Typography sx={{ fontSize: "1rem" }}>
-                    {vehicle.product}
-                  </Typography>
-                </Box>
-
-                <Box sx={{ mb: 2 }}>
-                  <Typography variant="subtitle2" color="textSecondary">
-                    FINAL PRICE
+                <Box sx={{ mt: 1 }}>
+                  <Typography
+                    variant="subtitle2"
+                    color="textSecondary"
+                    sx={{ fontSize: "0.75rem", mb: 0.25 }}
+                  >
+                    NOTES
                   </Typography>
                   <Typography
-                    sx={{ fontSize: "1.1rem", fontWeight: "bold", color: "green" }}
+                    sx={{
+                      fontSize: "0.8rem",
+                      color: "text.secondary",
+                      display: "-webkit-box",
+                      WebkitLineClamp: 2,
+                      WebkitBoxOrient: "vertical",
+                      overflow: "hidden",
+                    }}
                   >
-                    ₹{vehicle.finalPrice || "-"}
-                  </Typography>
-                </Box>
-
-                <Box>
-                  <Typography variant="subtitle2" color="textSecondary">
-                    REMARKS
-                  </Typography>
-                  <Typography sx={{ fontSize: "0.95rem" }}>
                     {vehicle.remarks || "-"}
                   </Typography>
                 </Box>

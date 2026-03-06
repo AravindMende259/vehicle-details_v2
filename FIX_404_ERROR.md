@@ -50,17 +50,13 @@ You'll see the full error message. Common errors:
 ## Step 3: Verify Sheet Format
 Make sure your Google Sheet has:
 - Sheet name: **Sheet1** (exact name)
-- Column A (Row 2+): Vehicle names
-- Column B (Row 2+): Vehicle numbers
-- Column C (Row 2+): Prices
+- Row 1: Column headers
+- Row 2+: Vehicle rows
 
 Example format:
 ```
-A          | B                | C
-─────────────────────────────────
-Name       | Number           | Price
-Toyota     | TN 01 AB 1234    | 8,00,000
-Honda      | TN 02 CD 5678    | 9,50,000
+Serial No | Brand | RC | NOC | Bank Address | Vehicle No | Vehicle Model | Year | Engine No | KM Driven | Chassis No | Customer Name | ... | Total Vehicle Price | Sale Price | Balance | Total Paid | Notes | Received
+1         | ...   | ...| ... | ...          | TN01...    | ...           | 2020 | ...       | 45000     | ...        | ...           | ... | 820000             | 900000     | 80000   | 200000     | ...   | ...
 ```
 
 ## Step 4: Check Server Logs

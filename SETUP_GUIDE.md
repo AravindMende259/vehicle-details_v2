@@ -39,12 +39,11 @@ vehicle-sheet-reader@vehicle-next-app.iam.gserviceaccount.com
 ### 4. **Verify Your Sheet Format**
 Make sure your Google Sheet has data in this format:
 ```
-Row 1: Headers (Name | Number | Price)
-Row 2: Toyota | TN 01 AB 1234 | 8,00,000
-Row 3: Honda | TN 02 CD 5678 | 9,50,000
+Row 1: Headers (Serial No | Brand | RC | NOC | Bank Address | Vehicle No | Vehicle Model | Year | Engine No | KM Driven | Chassis No | Customer Name | Customer Address | Contact No | RC Book / Ref No | Bid Rate | Profit | Cost Price (C1 Price) | Additional Cost (C2 Addl) | RC Rate | Case | Insurance | FC / Service Cost | Actual cost | Total Vehicle Price | Sale Price | Balance | Total Paid | Vehicle Delivered | Notes | Received)
+Row 2+: Your vehicle rows
 ```
 
-The API reads from `Sheet1` columns A:D starting at row 2 (A2:D).
+The API reads from `Sheet1` starting at `A1` (header row) and maps fields by header name.
 
 ### 5. **Test the API**
 After completing steps 1-4:

@@ -11,6 +11,7 @@ import {
   Paper,
   Grid,
   Divider,
+  Chip,
 } from "@mui/material";
 import { useEffect, useState } from "react";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
@@ -80,6 +81,15 @@ export default function VehicleDetails() {
     );
   }
 
+  const getDeliveryStatusLabel = () => {
+    const raw = vehicle.vehicleDelivered?.toString().trim();
+    if (!raw) return "Available for sale";
+    return raw;
+  };
+
+  const isDelivered = () =>
+    Boolean(vehicle.vehicleDelivered && vehicle.vehicleDelivered.toString().trim() !== "");
+
   // Helper function to display field with label
   const DetailField = ({ label, value }) => (
     <Box sx={{ mb: 2 }}>
@@ -108,9 +118,16 @@ export default function VehicleDetails() {
   );
 
   return (
-    <Container maxWidth="md" sx={{ mt: 3, mb: 5 }}>
+    <Container
+      maxWidth="sm"
+      sx={{
+        mt: { xs: 2, sm: 3 },
+        mb: { xs: 4, sm: 5 },
+        px: { xs: 1.5, sm: 2 },
+      }}
+    >
       {/* Header */}
-      <Box sx={{ mb: 4 }}>
+      <Box sx={{ mb: { xs: 2.5, sm: 4 } }}>
         <Button
           startIcon={<ArrowBackIcon />}
           onClick={() => router.push("/")}
@@ -119,13 +136,20 @@ export default function VehicleDetails() {
           Back to List
         </Button>
 
-        <Paper elevation={3} sx={{ p: { xs: 2, sm: 3, md: 4 }, backgroundColor: "#f9f9f9" }}>
+        <Paper
+          elevation={3}
+          sx={{
+            p: { xs: 2, sm: 3, md: 4 },
+            backgroundColor: "#f9f9f9",
+            borderRadius: 3,
+          }}
+        >
           <Typography
             variant="h4"
             sx={{
-              mb: 1,
+              mb: 0.5,
               fontWeight: "bold",
-              fontSize: { xs: "1.75rem", sm: "2.25rem", md: "2.75rem" },
+              fontSize: { xs: "1.4rem", sm: "1.9rem", md: "2.4rem" },
             }}
           >
             {vehicle.product}
@@ -135,19 +159,33 @@ export default function VehicleDetails() {
             sx={{
               color: "primary.main",
               fontWeight: "bold",
-              fontSize: "1.25rem",
-              mb: 2,
+              fontSize: "1.05rem",
+              mb: 1,
             }}
           >
             {vehicle.vno}
           </Typography>
+          <Box sx={{ mt: 0.5 }}>
+            <Chip
+              label={getDeliveryStatusLabel()}
+              color={isDelivered() ? "success" : "warning"}
+              variant={isDelivered() ? "filled" : "outlined"}
+              size="small"
+            />
+          </Box>
           <Divider sx={{ my: 2 }} />
           <Grid container spacing={2}>
             <Grid item xs={12} sm={6}>
-              <DetailField label="Owner Name" value={vehicle.name} />
+              <DetailField label="Customer Name" value={vehicle.name} />
             </Grid>
             <Grid item xs={12} sm={6}>
               <DetailField label="Year" value={vehicle.year} />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <DetailField label="Brand" value={vehicle.brand} />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <DetailField label="Contact Number" value={vehicle.contactNo} />
             </Grid>
           </Grid>
         </Paper>
@@ -168,36 +206,48 @@ export default function VehicleDetails() {
         </Typography>
         <Grid container spacing={2}>
           <Grid item xs={12} sm={6}>
-            <DetailField label="Rate/Charge" value={`₹${vehicle.rate}`} />
+            <DetailField label="Bid Rate" value={`₹${vehicle.rate}`} />
           </Grid>
           <Grid item xs={12} sm={6}>
-            <DetailField label="Final Price" value={`₹${vehicle.finalPrice}`} />
+            <DetailField label="Cost Price (C1)" value={`₹${vehicle.costPriceC1}`} />
           </Grid>
           <Grid item xs={12} sm={6}>
-            <DetailField
-              label="Sold Price"
-              value={`₹${vehicle.soldPrice}`}
-            />
+            <DetailField label="Additional Cost (C2)" value={`₹${vehicle.additionalCostC2}`} />
           </Grid>
           <Grid item xs={12} sm={6}>
-            <DetailField label="Advance" value={`₹${vehicle.advance}`} />
+            <DetailField label="RC Rate" value={`₹${vehicle.rcRate}`} />
+          </Grid>
+          <Grid item xs={12} sm={6}>
+            <DetailField label="Insurance" value={`₹${vehicle.insurance}`} />
+          </Grid>
+          <Grid item xs={12} sm={6}>
+            <DetailField label="FC / Service Cost" value={`₹${vehicle.fcServiceCost}`} />
+          </Grid>
+          <Grid item xs={12} sm={6}>
+            <DetailField label="Actual Cost" value={`₹${vehicle.actualCost}`} />
+          </Grid>
+          <Grid item xs={12} sm={6}>
+            <DetailField label="Total Vehicle Price" value={`₹${vehicle.totalVehiclePrice}`} />
+          </Grid>
+          <Grid item xs={12} sm={6}>
+            <DetailField label="Sale Price" value={`₹${vehicle.salePrice}`} />
+          </Grid>
+          <Grid item xs={12} sm={6}>
+            <DetailField label="Profit" value={`₹${vehicle.profit}`} />
+          </Grid>
+          <Grid item xs={12} sm={6}>
+            <DetailField label="Total Paid" value={`₹${vehicle.totalPaid}`} />
           </Grid>
           <Grid item xs={12} sm={6}>
             <DetailField label="Balance" value={`₹${vehicle.balance}`} />
           </Grid>
           <Grid item xs={12} sm={6}>
-            <DetailField label="Expenses (RC)" value={`₹${vehicle.rcRate}`} />
-          </Grid>
-          <Grid item xs={12} sm={6}>
-            <DetailField label="Mechanical Expense" value={`₹${vehicle.mecExpense}`} />
-          </Grid>
-          <Grid item xs={12} sm={6}>
-            <DetailField label="Extra Expense" value={`₹${vehicle.extrExpense}`} />
+            <DetailField label="Received" value={`₹${vehicle.received}`} />
           </Grid>
         </Grid>
       </Paper>
 
-      {/* Vehicle Information */}
+      {/* Vehicle & Case Information */}
       <Paper elevation={3} sx={{ p: { xs: 2, sm: 3 }, mb: 3 }}>
         <Typography
           variant="h6"
@@ -208,7 +258,7 @@ export default function VehicleDetails() {
             color: "primary.main",
           }}
         >
-          Vehicle Information
+          Vehicle & Case Information
         </Typography>
         <Grid container spacing={2}>
           <Grid item xs={12} sm={6}>
@@ -227,7 +277,13 @@ export default function VehicleDetails() {
             <DetailField label="Case Type" value={vehicle.case} />
           </Grid>
           <Grid item xs={12} sm={6}>
-            <DetailField label="General Expense" value={vehicle.expense} />
+            <DetailField label="NOC" value={vehicle.noc} />
+          </Grid>
+          <Grid item xs={12} sm={6}>
+            <DetailField label="Bank Address" value={vehicle.bankAddress} />
+          </Grid>
+          <Grid item xs={12} sm={6}>
+            <DetailField label="RC Book / Ref No" value={vehicle.rcBookRefNo} />
           </Grid>
         </Grid>
       </Paper>
@@ -252,6 +308,35 @@ export default function VehicleDetails() {
           <Grid item xs={12} sm={6}>
             <DetailField label="Chassis Number" value={vehicle.chassNo} />
           </Grid>
+          <Grid item xs={12}>
+            <DetailField label="KM Driven" value={vehicle.km} />
+          </Grid>
+        </Grid>
+      </Paper>
+
+      {/* Customer Details */}
+      <Paper elevation={3} sx={{ p: { xs: 2, sm: 3 }, mb: 3 }}>
+        <Typography
+          variant="h6"
+          sx={{
+            fontWeight: "bold",
+            mb: 2,
+            fontSize: "1.1rem",
+            color: "primary.main",
+          }}
+        >
+          Customer Details
+        </Typography>
+        <Grid container spacing={2}>
+          <Grid item xs={12}>
+            <DetailField label="Customer Name" value={vehicle.name} />
+          </Grid>
+          <Grid item xs={12}>
+            <DetailField label="Customer Address" value={vehicle.customerAddress} />
+          </Grid>
+          <Grid item xs={12}>
+            <DetailField label="Contact Number" value={vehicle.contactNo} />
+          </Grid>
         </Grid>
       </Paper>
 
@@ -268,7 +353,7 @@ export default function VehicleDetails() {
         >
           Additional Information
         </Typography>
-        <DetailField label="Remarks" value={vehicle.remarks} />
+        <DetailField label="Notes" value={vehicle.remarks} />
       </Paper>
 
       {/* Back Button */}

@@ -1,5 +1,22 @@
 import { google } from "googleapis";
 
+function normalizeHeader(value) {
+  return String(value ?? "")
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function toCamelCase(value) {
+  const parts = normalizeHeader(value).split(" ").filter(Boolean);
+  if (parts.length === 0) return "";
+  return parts
+    .map((p, i) => (i === 0 ? p : p.charAt(0).toUpperCase() + p.slice(1)))
+    .join("");
+}
+
 export async function GET() {
   try {
     // Validate environment variables
@@ -40,54 +57,83 @@ export async function GET() {
     // Fetch data from Google Sheet
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: process.env.GOOGLE_SHEET_ID,
-      range: "Sheet1!A2:S",
+      // Read the header row + data rows for the new format (31 columns => AE)
+      range: "Sheet1!A1:AE",
     });
 
-    // Column headers mapping
-    const headers = [
-      "name",      // 0
-      "product",   // 1
-      "km",        // 2
-      "vno",       // 3 - V.NO
-      "rc",        // 4
-      "year",      // 5
-      "rate",      // 6 - RATE=CHARGE
-      "case",      // 7
-      "expense",   // 8 - EXPENCE
-      "rcRate",    // 9 - RC RATE
-      "mecExpense", // 10 - MEC EXPNCE
-      "finalPrice", // 11 - FINAL PRICE
-      "extrExpense", // 12 - EXTR EXPNCE
-      "remarks",   // 13
-      "engNo",     // 14 - eng no
-      "chassNo",   // 15 - chass no
-      "soldPrice", // 16 - sold price
-      "advance",   // 17
-      "balance",   // 18
-    ];
+    const values = response.data.values || [];
 
     // Check if data exists
-    if (!response.data.values || response.data.values.length === 0) {
+    if (values.length === 0) {
       console.warn("No data found in Google Sheet");
       return Response.json([]);
     }
 
-    // Transform the 2D array into objects with proper keys, filtering out empty rows and date rows
-    const vehicles = response.data.values
+    const headerRow = values[0] || [];
+
+    // Map sheet headers (new Excel/Sheet format) -> internal keys used by UI
+    const headerToKey = {
+      [normalizeHeader("Serial No")]: "serialNo",
+      [normalizeHeader("Brand")]: "brand",
+      [normalizeHeader("RC")]: "rc",
+      [normalizeHeader("NOC")]: "noc",
+      [normalizeHeader("Bank Address")]: "bankAddress",
+      [normalizeHeader("Vehicle No")]: "vno",
+      [normalizeHeader("Vehicle Model")]: "product",
+      [normalizeHeader("Year")]: "year",
+      [normalizeHeader("Engine No")]: "engNo",
+      [normalizeHeader("KM Driven")]: "km",
+      [normalizeHeader("Chassis No")]: "chassNo",
+      [normalizeHeader("Customer Name")]: "name",
+      [normalizeHeader("Customer Address")]: "customerAddress",
+      [normalizeHeader("Contact No")]: "contactNo",
+      [normalizeHeader("RC Book / Ref No")]: "rcBookRefNo",
+      [normalizeHeader("Bid Rate")]: "rate",
+      [normalizeHeader("Profit")]: "profit",
+      [normalizeHeader("Cost Price (C1 Price)")]: "costPriceC1",
+      [normalizeHeader("Additional Cost (C2 Addl)")]: "additionalCostC2",
+      [normalizeHeader("RC Rate")]: "rcRate",
+      [normalizeHeader("Case")]: "case",
+      [normalizeHeader("Insurance")]: "insurance",
+      [normalizeHeader("FC / Service Cost")]: "fcServiceCost",
+      [normalizeHeader("Actual cost")]: "actualCost",
+      [normalizeHeader("Total Vehicle Price")]: "totalVehiclePrice",
+      [normalizeHeader("Sale Price")]: "salePrice",
+      [normalizeHeader("Balance")]: "balance",
+      [normalizeHeader("Total Paid")]: "totalPaid",
+      [normalizeHeader("Vehicle Delivered")]: "vehicleDelivered",
+      [normalizeHeader("Notes")]: "remarks",
+      // "Received............" (normalize strips punctuation, so this matches even with dots)
+      [normalizeHeader("Received")]: "received",
+    };
+
+    // Build column index -> key mapping (based on the header row)
+    const colKeys = headerRow.map((h) => {
+      const normalized = normalizeHeader(h);
+      return headerToKey[normalized] || toCamelCase(h);
+    });
+
+    // Transform the 2D array into objects with proper keys, filtering out empty rows
+    const vehicles = values
+      .slice(1)
       .filter((row) => {
-        // Skip empty rows
         if (!row || row.length === 0) return false;
-        // Skip rows that contain only dates (single cell with date format)
-        if (row.length === 1 && /^\d{2}-\d{2}-\d{4}$/.test(row[0])) return false;
-        // Skip rows with only "L AND T" or other section headers
-        if (row.length === 1 && row[0] && row[0].match(/^[A-Z\s&]+$/)) return false;
-        return true;
+        const hasAnyValue = row.some((cell) => String(cell ?? "").trim() !== "");
+        return hasAnyValue;
       })
       .map((row, index) => {
-        const vehicle = { id: index + 1 };
-        headers.forEach((header, colIndex) => {
-          vehicle[header] = row[colIndex] || "";
+        const vehicle = {};
+        colKeys.forEach((key, colIndex) => {
+          if (!key) return;
+          vehicle[key] = row[colIndex] ?? "";
         });
+
+        // Ensure stable id and backwards-compatible fields used by UI
+        vehicle.id = vehicle.serialNo ? Number(vehicle.serialNo) : index + 1;
+        vehicle.finalPrice = vehicle.totalVehiclePrice ?? vehicle.finalPrice ?? "";
+        vehicle.soldPrice = vehicle.salePrice ?? vehicle.soldPrice ?? "";
+        vehicle.advance = vehicle.totalPaid ?? vehicle.advance ?? "";
+
         return vehicle;
       });
 
