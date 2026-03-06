@@ -32,7 +32,7 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [deliveryFilter, setDeliveryFilter] = useState("all"); // all | available | delivered
+  const [deliveryFilter, setDeliveryFilter] = useState("all"); // all | available | partial | sold | delivered
 
   useEffect(() => {
     fetch("/api/vehicles")
@@ -99,19 +99,86 @@ export default function Home() {
     );
   }
 
-  const getDeliveryStatus = (vehicle) => {
-    const raw = vehicle.vehicleDelivered?.toString().trim();
-    if (!raw) return "available"; // Available for sale
-    return "delivered";
+  const parseAmount = (value) => {
+    if (value === null || value === undefined) return 0;
+    const num = parseFloat(
+      value
+        .toString()
+        .replace(/[^0-9.-]/g, "")
+    );
+    return Number.isNaN(num) ? 0 : num;
+  };
+
+  const getSaleStatus = (vehicle) => {
+    const rawSalePrice = parseAmount(vehicle.salePrice);
+    const rawTotalPrice = parseAmount(vehicle.totalVehiclePrice);
+    // Prefer sale price when present and > 0, otherwise fall back to total vehicle price
+    const salePrice = rawSalePrice > 0 ? rawSalePrice : rawTotalPrice;
+
+    const paid = Math.max(
+      parseAmount(vehicle.totalPaid),
+      parseAmount(vehicle.received)
+    );
+    let balance = parseAmount(vehicle.balance);
+
+    if (!balance && salePrice) {
+      balance = Math.max(salePrice - paid, 0);
+    }
+
+    if (!salePrice) return "available";
+    if (paid <= 0) return "available";
+    if (paid > 0 && balance > 0) return "partial";
+    return "sold";
+  };
+
+  const isDeliveredVehicle = (vehicle) => {
+    const val = vehicle.vehicleDelivered?.toString().trim().toLowerCase();
+    if (!val) return false;
+    if (val === "n" || val === "no") return false;
+    if (val.startsWith("n ")) return false;
+    return true;
+  };
+
+  const isYetToReceive = (vehicle) => {
+    const val = vehicle.received?.toString().trim().toLowerCase();
+    if (!val) return false;
+    // Treat any value that starts with "n" (N, No, Not) as "yet to receive"
+    return val.startsWith("n");
   };
 
   const getStatusLabel = (vehicle) => {
-    const raw = vehicle.vehicleDelivered?.toString().trim();
-    if (!raw) return "Available for sale";
-    return raw;
+    const saleStatus = getSaleStatus(vehicle);
+    if (saleStatus === "partial") return "Partially sold";
+    if (saleStatus === "sold") return "Sold";
+    return "Available for sale";
   };
 
-  // Filter vehicles based on search query and delivery status
+  const getStatusChipProps = (vehicle) => {
+    const saleStatus = getSaleStatus(vehicle);
+    if (saleStatus === "partial") {
+      return { color: "warning", variant: "filled" };
+    }
+    if (saleStatus === "sold") {
+      return { color: "success", variant: "filled" };
+    }
+    return { color: "default", variant: "outlined" };
+  };
+
+  const metrics = vehicles.reduce(
+    (acc, vehicle) => {
+      acc.total += 1;
+      const saleStatus = getSaleStatus(vehicle);
+      if (saleStatus === "available") acc.available += 1;
+      else if (saleStatus === "partial") acc.partial += 1;
+      else if (saleStatus === "sold") acc.sold += 1;
+      if (isDeliveredVehicle(vehicle)) acc.delivered += 1;
+      if (isYetToReceive(vehicle)) acc.yetToReceive += 1;
+      return acc;
+    },
+    { total: 0, available: 0, partial: 0, sold: 0, delivered: 0, yetToReceive: 0 }
+  );
+
+  // Filter vehicles based on search query and status
   const filteredVehicles = vehicles
     .filter((vehicle) => {
       const searchLower = searchQuery.toLowerCase();
@@ -121,9 +188,12 @@ export default function Home() {
       );
     })
     .filter((vehicle) => {
-      const status = getDeliveryStatus(vehicle);
-      if (deliveryFilter === "available") return status === "available";
-      if (deliveryFilter === "delivered") return status === "delivered";
+      const saleStatus = getSaleStatus(vehicle);
+      const delivered = isDeliveredVehicle(vehicle);
+      if (deliveryFilter === "available") return saleStatus === "available";
+      if (deliveryFilter === "partial") return saleStatus === "partial";
+      if (deliveryFilter === "sold") return saleStatus === "sold";
+      if (deliveryFilter === "delivered") return delivered;
       return true;
     });
 
@@ -135,22 +205,171 @@ export default function Home() {
         pb: { xs: 3, sm: 4, md: 5 },
       }}
     >
-      <Typography
-        variant="h4"
-        gutterBottom
-        sx={{
-          textAlign: "center",
-          mb: 4,
-          fontWeight: "bold",
-          fontSize: {
-            xs: "1.5rem",
-            sm: "2rem",
-            md: "2.5rem",
-          },
-        }}
-      >
-        Vehicle Inventory
-      </Typography>
+      <Box sx={{ textAlign: "center", mb: 3 }}>
+        <Typography
+          variant="h4"
+          gutterBottom
+          sx={{
+            fontWeight: "bold",
+            fontSize: {
+              xs: "1.4rem",
+              sm: "1.8rem",
+              md: "2.1rem",
+            },
+          }}
+        >
+          Vehicle Inventory
+        </Typography>
+        <Typography
+          variant="body2"
+          color="textSecondary"
+          sx={{ fontSize: "0.85rem" }}
+        >
+          Quick view of stock, sales and delivery status
+        </Typography>
+      </Box>
+
+      {/* Summary metrics */}
+      <Box sx={{ mb: 3 }}>
+        <Grid container spacing={1.5}>
+          <Grid item xs={6} sm={3}>
+            <Paper
+              sx={{
+                p: 1.25,
+                borderRadius: 2,
+                textAlign: "center",
+                bgcolor: "#f3f4f6",
+              }}
+            >
+              <Typography
+                variant="caption"
+                sx={{ textTransform: "uppercase", fontSize: "0.7rem" }}
+              >
+                Total
+              </Typography>
+              <Typography
+                variant="h6"
+                sx={{ fontWeight: "bold", mt: 0.25, fontSize: "1.1rem" }}
+              >
+                {metrics.total}
+              </Typography>
+            </Paper>
+          </Grid>
+          <Grid item xs={6} sm={3}>
+            <Paper
+              sx={{
+                p: 1.25,
+                borderRadius: 2,
+                textAlign: "center",
+                bgcolor: "#ecfdf3",
+              }}
+            >
+              <Typography
+                variant="caption"
+                sx={{ textTransform: "uppercase", fontSize: "0.7rem" }}
+              >
+                Sold
+              </Typography>
+              <Typography
+                variant="h6"
+                sx={{
+                  fontWeight: "bold",
+                  mt: 0.25,
+                  fontSize: "1.1rem",
+                  color: "success.main",
+                }}
+              >
+                {metrics.sold}
+              </Typography>
+            </Paper>
+          </Grid>
+          <Grid item xs={6} sm={3}>
+            <Paper
+              sx={{
+                p: 1.25,
+                borderRadius: 2,
+                textAlign: "center",
+                bgcolor: "#fffbeb",
+              }}
+            >
+              <Typography
+                variant="caption"
+                sx={{ textTransform: "uppercase", fontSize: "0.7rem" }}
+              >
+                Partial
+              </Typography>
+              <Typography
+                variant="h6"
+                sx={{
+                  fontWeight: "bold",
+                  mt: 0.25,
+                  fontSize: "1.1rem",
+                  color: "warning.main",
+                }}
+              >
+                {metrics.partial}
+              </Typography>
+            </Paper>
+          </Grid>
+          <Grid item xs={6} sm={3}>
+            <Paper
+              sx={{
+                p: 1.25,
+                borderRadius: 2,
+                textAlign: "center",
+                bgcolor: "#eff6ff",
+              }}
+            >
+              <Typography
+                variant="caption"
+                sx={{ textTransform: "uppercase", fontSize: "0.7rem" }}
+              >
+                Available
+              </Typography>
+              <Typography
+                variant="h6"
+                sx={{
+                  fontWeight: "bold",
+                  mt: 0.25,
+                  fontSize: "1.1rem",
+                  color: "info.main",
+                }}
+              >
+                {metrics.available-metrics.yetToReceive}
+              </Typography>
+            </Paper>
+          </Grid>
+          <Grid item xs={6} sm={3}>
+            <Paper
+              sx={{
+                mt: { xs: 1.5, sm: 0 },
+                p: 1.25,
+                borderRadius: 2,
+                textAlign: "center",
+                bgcolor: "#fee2e2",
+              }}
+            >
+              <Typography
+                variant="caption"
+                sx={{ textTransform: "uppercase", fontSize: "0.7rem" }}
+              >
+                Yet to receive
+              </Typography>
+              <Typography
+                variant="h6"
+                sx={{
+                  fontWeight: "bold",
+                  mt: 0.25,
+                  fontSize: "1.1rem",
+                  color: "error.main",
+                }}
+              >
+                {metrics.yetToReceive}
+              </Typography>
+            </Paper>
+          </Grid>
+        </Grid>
+      </Box>
 
       {/* Search & Filters */}
       <Grid container spacing={2} sx={{ mb: 4 }}>
@@ -173,16 +392,18 @@ export default function Home() {
         </Grid>
         <Grid item xs={12} md={6}>
           <FormControl fullWidth size="medium">
-            <InputLabel id="delivery-filter-label">Vehicle Delivered</InputLabel>
+            <InputLabel id="delivery-filter-label">Status</InputLabel>
             <Select
               labelId="delivery-filter-label"
               value={deliveryFilter}
-              label="Vehicle Delivered"
+              label="Status"
               onChange={(e) => setDeliveryFilter(e.target.value)}
               sx={{ backgroundColor: "#fff", borderRadius: "10px" }}
             >
               <MenuItem value="all">All vehicles</MenuItem>
               <MenuItem value="available">Available for sale</MenuItem>
+              <MenuItem value="partial">Partially sold</MenuItem>
+              <MenuItem value="sold">Sold</MenuItem>
               <MenuItem value="delivered">Delivered only</MenuItem>
             </Select>
           </FormControl>
@@ -236,8 +457,7 @@ export default function Home() {
                     <Chip
                       label={getStatusLabel(vehicle)}
                       size="small"
-                      color={getDeliveryStatus(vehicle) === "delivered" ? "success" : "warning"}
-                      variant={getDeliveryStatus(vehicle) === "delivered" ? "filled" : "outlined"}
+                      {...getStatusChipProps(vehicle)}
                     />
                   </TableCell>
                   <TableCell sx={{ fontSize: "0.95rem" }}>
@@ -351,16 +571,7 @@ export default function Home() {
                       <Chip
                         label={getStatusLabel(vehicle)}
                         size="small"
-                        color={
-                          getDeliveryStatus(vehicle) === "delivered"
-                            ? "success"
-                            : "warning"
-                        }
-                        variant={
-                          getDeliveryStatus(vehicle) === "delivered"
-                            ? "filled"
-                            : "outlined"
-                        }
+                        {...getStatusChipProps(vehicle)}
                       />
                     </Box>
                   </Box>
